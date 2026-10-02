@@ -1,0 +1,83 @@
+\section{Experiments}
+\label{sec:experiments}
+\subsection{Dataset and comparisons}
+We adopt the sycophancy setting of \citet{chua_bias-augmented_2024}: a multiple-choice question is presented with and without a cue suggesting an answer. The expanded comparison includes BCT, ACT, AttCT, MLPCT, OPCT and RMCT. In the Qwen experiment represented by the provisional figures, wrong argument and suggested answer are the seen biases; distractor fact, post hoc, spurious few-shot squares and wrong few-shot are held out. LogiQA and HellaSwag form the seen datasets and are pooled; HLE text-MC is the held-out dataset.
+
+The main comparison is data-matched. Matching requires verifying the questions and bias variants actually used by each method, including repeated exposure; equal numbers of optimisation steps need not imply equal exposure. Compute-matched comparisons, separately within activation-based and output-based methods, and convergence with validation are reported separately in the appendix. \textbf{The figures currently occupying the main-result slots use historical terminal checkpoints and do not yet implement this data-matched comparison.} They are included so that the presentation and surrounding argument can be developed while replacement results are prepared.
+
+\subsection{Metrics}
+We report the towards-bias switch rate on pairs with valid parsed answers whose clean answer differs from the promoted option. Its numerator counts pairs whose biased answer equals the promoted option. This eligibility-conditioned rate must be distinguished from the original draft's rate over all question pairs. We retain the denominator explicitly. Invalid responses are excluded from parsed-pair metrics, with missingness reported separately; they are counted as incorrect in all-generated biased accuracy.
+
+The primary verbalisation analysis measures bias verbalisation among observed towards-bias switches with valid verbalisation grades. Overall verbalisation is reported in the appendix. Each model can have a different switched subset, so a difference between these conditional rates does not by itself identify a causal change in verbalisation on the same questions. Cue verbalisation is also distinct from monitorability: the latter asks how well a monitor can identify the specified outcome from the information made available to it.
+
+\section{Results}
+\label{sec:results}\label{sec:current-results}
+\subsection{Does training reduce conditioning on cues?}
+Figure~\ref{fig:current-switch} separates generalisation across biases from generalisation across datasets. The top row pools LogiQA and HellaSwag; the bottom row reports HLE. The left and right columns report seen and held-out biases respectively. This makes it possible to ask whether a reduction transfers beyond the cues and question distributions used in training. Expanded per-bias results and biased accuracy appear in Appendix~\ref{app:current-expanded}.
+
+\textbf{Result interpretation pending replacement.} The displayed rates describe saved responses from historical checkpoints. They do not establish the relative performance of the methods under the planned data-matched comparison. In particular, corrected parsing of evaluation responses does not undo errors in RMCT's training rewards. Final comparative claims will be written against the replacement figures.
+
+\begin{figure*}[t]
+\centering\color{blue}\includegraphics[width=.94\linewidth]{figures/provisional/main-switch.pdf}
+\caption{Towards-bias switch rate for Qwen3.5-9B. Rows: seen datasets (LogiQA+HellaSwag), held-out dataset (HLE); columns: seen and held-out biases. Numbers above bars are eligible pairs. Saved 95\% QID-cluster bootstrap intervals and Holm-corrected significance markers versus Base are retained. \provisional{Parser-corrected 25 September evaluation of historical checkpoints, including RMCT352 trained with affected trait rewards; training exposure is not matched. Selective 64k recovery leaves missing responses and Base clean labels incompletely verifiable. Replace with clean RMCT training and verified data-matched evaluation under a pinned parser. Replacement unassigned; completion is not verified.}}
+\label{fig:current-switch}
+\end{figure*}
+
+\subsection{Does training preserve cue verbalisation and monitorability?}
+Existing consistency objectives constrain responses or internal representations, including properties beyond the behaviour of interest. RMCT instead defines its consistency reward over a selected trait. We examine cue verbalisation as an outcome in its own right, and monitorability as a separate outcome.
+
+Figure~\ref{fig:current-verbalisation} reports verbalisation on the observed towards-bias-switch subset. Overall rates and per-bias breakdowns are in the appendix. This conditional analysis focuses on responses where the sampled answer changes towards the promoted option; sampling variation means that an individual switch does not prove causal influence by the cue. The provisional observations therefore do not establish preserved faithfulness or the absence of obfuscation.
+
+\begin{figure*}[t]
+\centering\color{blue}\includegraphics[width=.94\linewidth]{figures/provisional/main-conditional.pdf}
+\caption{Conditional bias verbalisation among towards-bias switches, using the same dataset and bias splits as Figure~\ref{fig:current-switch}. Numbers are graded switched responses; subsets differ across models. Intervals and markers are retained from the saved analysis. \provisional{Parser-corrected 25 September evaluation on historically trained models, including affected RMCT352. Three parsed BCT and six parsed RMCT responses lack grades and are excluded; Base clean labels remain incompletely verifiable. Selective recovery is not uniform 64k evaluation. Replace with clean, data-matched checkpoints and complete verified grading. Replacement unassigned; these rates do not measure monitorability.}}
+\label{fig:current-verbalisation}
+\end{figure*}
+
+\paragraph{Monitorability.}
+The Luna monitor receives reasoning only, without the clean answer or outcome label. Figure~\ref{fig:current-monitorability} reports the unfiltered available-score population: all valid scored pairs, including those whose clean answer already matches the promoted option. The target is an observed towards-bias switch, requiring that the clean answer differs from the promoted option and the biased answer matches it. Already-matched pairs are therefore non-switches. Lower-left FNR--FPR curves are better. This sampled-switch target is not causal influence ground truth. Appendix~\ref{app:monitoring} provides the verbalisation split, calibration configurations and answer-match quadrant diagnostics.
+
+\begin{figure}[t]\centering\color{blue}
+% Exact top-right panel from the supplied 864 x 720 bp PDF.
+\includegraphics[trim=430bp 360bp 8bp 55bp,clip,width=\linewidth]{figures/provisional/luna-curves-available.pdf}
+\caption{Luna zero-shot, CoT-only, xhigh monitorability: unfiltered available-score FNR--FPR curves (the top-right source panel). Base/BCT/RMCT have 645/946/1,056 scored pairs and 154/154/206 positive switches; AUROC is .933/.820/.921. Shading retains pointwise 95\% intervals from 10,000 paired question-cluster resamples, stratified by dataset. \provisional{Method-specific available-score cohorts; filtered score coverage remains incomplete and Base clean labels are unverified. Historical RMCT training was affected. These scores do not establish causal influence or faithfulness.}}
+\label{fig:current-monitorability}
+\end{figure}
+
+\subsection{Cross-task and cross-modality generalisation}
+We use the existing AITA-NTA-FLIP evaluation as a cross-task test and the saved image-cue evaluations as cross-modality tests. These assess transfer beyond the text MCQ training format. Figure~\ref{fig:current-aita} shows the AITA comparison; Figure~\ref{fig:current-image-qwen} shows the Qwen image-cue results; all Gemma results are in Appendix~\ref{app:gemma}. No transfer ranking is claimed from these historical, unmatched comparisons. Coverage, checkpoint matching and parsing must be verified independently for each testbed.
+
+\begin{figure*}[t]\centering\color{blue}
+\includegraphics[width=.72\linewidth]{figures/provisional/cross-task.pdf}
+\caption{Saved Qwen AITA-NTA-FLIP terminal-checkpoint comparison from the selective 64k-retry analysis. \provisional{Historical checkpoints, including affected RMCT training. The older 20k and selective retry protocols must not be conflated; this is not a fresh uniform 64k evaluation or a clean, data-matched comparison.}}
+\label{fig:current-aita}
+\end{figure*}
+\begin{figure*}[t]\centering\color{blue}
+\includegraphics[width=.94\linewidth]{figures/provisional/image-qwen.pdf}
+\caption{Saved Qwen image-cue results, 25 September. Suggested answer is the seen cue; sampled shape and spurious few-shot squares are held out. \provisional{Historical checkpoints including affected RMCT training; exposure matching is not established. These image cues test a new modality, even when the cue identity was seen during text training.}}
+\label{fig:current-image-qwen}
+\end{figure*}
+\FloatBarrier
+
+\section{Evaluation gaming: a proof of concept}
+We additionally consider a small proof of concept with one evaluation-gaming model organism. Base, intermediate and post-training checkpoints are stages of this organism, rather than independent organisms. The questions are whether behaviour becomes less conditioned on evaluation cues and whether verbalised evaluation awareness is preserved. Table~\ref{tab:organism} supplies historical organism-characterisation results as a provisional reference. These checkpoints must not be interpreted as an RMCT intervention without verified training provenance. The native bridge contains eight goal configurations of one rescue narrative, with and without an explicit evaluation notice; it does not supply eight independent scenarios. The small number of episodes and separate valid denominators limit interpretation. A consistency-training effect in this setting remains to be established.
+
+\begin{table}[t]\centering\color{blue}
+\caption{Native bridge: one organism, three checkpoints. Counts are positive/valid episodes out of 16 attempted per checkpoint. \provisional{15 September historical organism characterisation, not a verified RMCT comparison. One repeat per configuration; uncertainty over independent scenarios is unavailable. Missing behaviour and awareness labels have separate denominators. Replace with verified intervention-linked behaviour and verbalised-awareness results; replacement unassigned.}}
+\label{tab:organism}
+\begin{tabular}{lrr}\toprule Checkpoint & Harmful behaviour & Awareness\\\midrule
+Base & 11/16 & 0/16\\
+Intermediate & 14/16 & 0/16\\
+Post-training & 0/14 & 6/10\\\bottomrule
+\end{tabular}\end{table}
+
+\section{Discussion}
+\label{sec: discussion}
+The motivation for selective consistency training is to constrain the behaviour of interest without directly requiring the model to suppress mention of extraneous cues. Whether this improves the empirical trade-off between robustness, verbalisation and monitorability requires separate measurements of all three. Bias verbalisation can remain high without enabling an effective monitor, and an effective monitor can exploit correlations without identifying causal influence.
+
+The parser audit also illustrates why the implementation of the selected trait is part of the training method. Saved-rollout replay reproduced the historical rewards and found changes under corrected final-answer extraction in both audited Qwen and Gemma training. Reparsing evaluation outputs improves the measurement of the resulting checkpoints but cannot reverse their parameter updates. The replacement comparison therefore requires training from the original pre-RMCT state with a verified parser and fresh optimiser. No claim about the direction or magnitude of the resulting performance change follows from the audit alone.
+
+Sampling variance remains a limitation of single-pair switching measures. Repeated clean responses would help estimate a switching baseline; the available answer-transition and invariance analyses are descriptive and do not remove this confound. Our efficiency analysis likewise separates data exposure, allocated compute and validation-selected stopping rather than treating one as a proxy for another.
+
+\section{Conclusion}
+RMCT provides a method for enforcing consistency over selected behavioural properties. The revised empirical comparison asks whether this reduces conditioning on cues while preserving cue verbalisation and monitorability. The figures in this working draft establish the intended presentation; final comparative conclusions await the verified replacement experiments.
