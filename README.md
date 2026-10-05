@@ -1,23 +1,21 @@
 # rmct-paper2
 
-Working manuscript: **Consistency Training while Mitigating Obfuscation via Rate Matching**.
+Working manuscript: **Consistency Training while Preserving Monitorability via Rate Matching**.
 
-[Read the current manuscript](manuscript.pdf).
+[Read the current manuscript](main.pdf).
 
 ## Build
 
-The current entrypoint is `manuscript.tex`, which includes `current-results.tex` and `current-appendix.tex`. `main.tex` preserves the original manuscript source and is not the current entrypoint.
+The entrypoint is `main.tex`, which includes `current-results.tex` and `current-appendix.tex`. The original manuscript source is preserved in the Git history.
 
 With a TeX installation and `latexmk`:
 
 ```sh
-LC_ALL=C LANG=C latexmk -pdf -interaction=nonstopmode -halt-on-error manuscript.tex
+LC_ALL=C LANG=C latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
 ```
 
 ## Draft status
 
-This is a provisional research draft, updated 2 October 2026. Blue manuscript prose and captions identify additions for review. Historical evaluation results, affected RMCT training, incomplete coverage and unmatched comparisons are explicitly qualified in the manuscript; this repository does not establish clean retraining or final publication claims.
-
-Gemma results are in the appendix. Main monitorability uses only the unfiltered top-right Luna zero-shot, reasoning-only, xhigh FNR–FPR panel. The appendix includes the verbalisation split, calibration configuration comparison and four-quadrant diagnostics.
+This is a provisional research draft, updated 6 October 2026. Blue text marks additions relative to the original manuscript. Results on Gemma-4-12B-IT are in the main text and results on Qwen3.5-9B are in the appendix. All methods are compared at a matched budget of 128 training batches.
 
 The repository contains manuscript source, bibliography, formatting dependencies, figure assets and the compiled PDF. Private experiment data, raw model responses, grading ledgers, credentials and local operational files are not included.

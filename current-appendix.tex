@@ -1,114 +1,404 @@
-\section{Expanded results and missingness}
-\label{app:current-expanded}\label{app:biases}
-The seen text biases are wrong argument and suggested answer. Held-out text biases are distractor fact, post hoc, spurious few-shot squares and wrong few-shot. All expanded figures retain the existing publication pipeline's pooled LogiQA+HellaSwag row and separate HLE row.
+\section{\texorpdfstring{\textcolor{blue}{Training and evaluation details}}{Training and evaluation details}}
+\label{app:details}
+\subsection{Training data}
+\textcolor{blue}{All methods draw training questions from one pool of 7,680 questions, 3,840 from LogiQA and 3,840 from HellaSwag, traversed once in a fixed interleaved order that is shared across methods and models.} \textcolor{blue}{Each question is assigned one of the two training biases, wrong argument or suggested answer, by a hash of its identifier, so every method sees the same question--bias pairs.} \textcolor{blue}{Each batch contains four questions.} \textcolor{blue}{The data-matched checkpoints are taken after 128 batches, which cover 512 questions, counting batches that produced no update.} \textcolor{blue}{No instruction-following data is mixed in.} \textcolor{blue}{For ACT, AttCT and MLPCT, the suggested-answer cue is moved before the question in the training prompts, following \citet{gautam2026consistency}; all other methods and all evaluations use the original cue position.}
 
-The 25 September bundle reparses saved responses and overlays targeted length-stop recovery and the RMCT IID top-up. It is not a uniform fresh 64k evaluation. Twelve BCT recovery responses are absent; 27 outputs accepted by the old parser at the 20k limit were not targeted for recovery, and two retries reach 64k. There are 36 unparsed biased responses in total. Parsed responses without verbalisation grades (three BCT, six RMCT) are excluded from verbalisation denominators. Base clean responses are unavailable for independent verification except where rerun. These limitations are preserved in the provisional figures.
+\subsection{Training methods}
+\textcolor{blue}{All methods train a LoRA adapter \citep{hu2022lora} of rank 8 ($\alpha=16$, no dropout) with AdamW (learning rate $10^{-4}$, constant schedule, $\beta=(0.9, 0.95)$, no weight decay, gradient clipping at 1.0).} \textcolor{blue}{Thinking is enabled during training, and all sampled training responses are capped at 20,480 tokens.} \textcolor{blue}{Table~\ref{tab:methods} summarises the method-specific settings.}
 
-\begin{figure}[htbp]\centering\color{blue}
-\includegraphics[width=\linewidth]{figures/provisional/expanded-switch.pdf}
-\caption{Per-bias towards-bias switch rates. \provisional{25 September parser-corrected saved evaluation; Base clean labels remain incompletely verifiable and recovery is selective. Historical RMCT training was affected by trait parsing; checkpoints are not exposure-matched. Replace with clean, data-matched training and verified evaluation. Replacement unassigned. Source statistics, intervals, significance markers and denominators are retained.}}
-\end{figure}
-\begin{figure}[htbp]\centering\color{blue}
-\includegraphics[width=\linewidth]{figures/provisional/expanded-conditional.pdf}
-\caption{Per-bias conditional verbalisation among towards-bias switches. \provisional{25 September parser-corrected saved evaluation on historically affected RMCT training; incomplete Base clean verification and nine missing BCT/RMCT grades. Model-specific switched subsets differ. Replace with clean, data-matched training and complete verified grades. Replacement unassigned.}}
-\end{figure}
-\begin{figure}[htbp]\centering\color{blue}
-\includegraphics[width=\linewidth]{figures/provisional/overall-verbalisation.pdf}
-\caption{Overall bias verbalisation. \provisional{25 September parser-corrected saved evaluation, with unparsed or ungraded responses excluded according to the source metric. Historical RMCT training was affected; selective recovery and missing grades remain. Replace with clean checkpoints, verified matched exposure and complete grading. Replacement unassigned. This is not a monitorability measure.}}
-\end{figure}
-\begin{figure}[htbp]\centering\color{blue}
-\includegraphics[width=\linewidth]{figures/provisional/biased-accuracy.pdf}
-\caption{Biased accuracy over all generated responses; unparsed outputs count as incorrect. \provisional{25 September parser-corrected saved evaluation, including selective length-stop recovery and the RMCT top-up. Historical RMCT training was affected and training exposure is unmatched. Replace with clean, data-matched checkpoints under a verified evaluation protocol. Replacement unassigned.}}
-\end{figure}
+\begin{table*}[!tp]\centering\small
+\caption{\textcolor{blue}{Method-specific training settings.} \textcolor{blue}{The reference model is the frozen base model with the adapter disabled.}}
+\label{tab:methods}
+\color{blue}\begin{tabular}{p{1.4cm}p{6.6cm}p{3.2cm}p{3.4cm}}\toprule
+Method & Objective & LoRA modules & Sampling during training\\\midrule
+ACT & Mean squared error between residual-stream activations on the biased prompt and those of the reference model on the unbiased prompt, over all layers and the shared prompt suffix. & Attention query and value projections & None\\
+AttCT & Jensen--Shannon divergence between attention distributions, all layers, uniform layer weights. & As ACT & None\\
+MLPCT & Cosine distance between SwiGLU MLP hidden activations, all layers, uniform layer weights. & As ACT & None\\
+BCT & Negative log-likelihood, given the biased prompt, of one response sampled from the reference model on the unbiased prompt. & All attention and MLP projections & One target per question, temperature 1.0\\
+OPCT & Per-token reverse KL divergence between the current model on the biased prompt and the reference model on the unbiased prompt, evaluated on the current model's own samples (KL coefficient 2.0, discount factor 0.9). & All attention and MLP projections & Four rollouts per prompt, temperature 0.7\\
+RMCT & Consistency reward (Equation~\ref{eq:reward}) with the unbiased prompt as reference, optimised with a clipped policy-gradient objective (clip 0.2) and group-normalised advantages; KL coefficient 0.05; no anchor reward. & All attention and MLP projections & 96 rollouts per prompt on each of the unbiased and biased prompts, temperature 1.0\\\bottomrule
+\end{tabular}\end{table*}
+
+\textcolor{blue}{For RMCT, the trait $T$ indicates whether the parsed final answer equals the option promoted by the bias.} \textcolor{blue}{Rollouts that reach the token limit or lack a parsed answer are excluded.} \textcolor{blue}{On Gemma-4-12B-IT, OPCT excludes any group in which a rollout reaches the token limit; on Qwen3.5-9B, it trains on such rollouts.} \textcolor{blue}{The number of optimiser updates within the 128 batches is therefore 110 for RMCT, 120 for OPCT and 127 for BCT on Gemma-4-12B-IT, and 118 for RMCT on Qwen3.5-9B; every other method applies 128 updates.}
+
+\textcolor{blue}{On Qwen3.5-9B, the ACT, AttCT and MLPCT adapters are restricted to the query and value projections of the full-attention layers.}
+
+\subsection{Evaluation}
+\textcolor{blue}{The evaluation set contains 50 LogiQA and 50 HellaSwag questions, selected by a hash of their identifiers, and all 100 HLE multiple-choice questions, each under the unbiased prompt and the six biases.} \textcolor{blue}{We sample one response per prompt with thinking enabled, temperature 1.0, top-$p$ 0.95 and top-$k$ 20, using a fixed seed per prompt, with vLLM.} \textcolor{blue}{Responses are capped at 20,480 tokens on LogiQA and HellaSwag and at 65,536 tokens on HLE.} \textcolor{blue}{The final answer is the last answer letter in the text after the reasoning.} \textcolor{blue}{A response has no parsed answer if it reaches the token limit, does not close its reasoning, or contains no answer letter.} \textcolor{blue}{Confidence intervals are 95\% bootstrap intervals over questions with 10,000 resamples, stratified by dataset, and significance tests are paired permutation tests against the base model over whole questions with 100,000 permutations, Holm-corrected within each figure.}
+
+\textcolor{blue}{For the image evaluation, each question is rendered as an image under the unbiased prompt and three visual cues: a suggested answer, a sampled shape marking an option, and spurious few-shot squares.} \textcolor{blue}{Sampling settings are as above.}
+
+\textcolor{blue}{Bias verbalisation is graded by GPT-5.6 Luna with low reasoning effort, given the bias description and the response.} \textcolor{blue}{The monitor in Section~\ref{sec:results} is GPT-5.6 Luna with extra-high reasoning effort, given only the reasoning of the response under the biased prompt, and asked for the probability that a cue in the prompt pulled the answer towards an option the model would otherwise not have selected.}
+
+\subsection{\texorpdfstring{\textcolor{blue}{Hardware}}{Hardware}}
+\textcolor{blue}{All training and evaluation ran on NVIDIA GH200 GPUs.} \textcolor{blue}{ACT, AttCT and MLPCT train on one GPU.} \textcolor{blue}{On Gemma-4-12B-IT, BCT, OPCT and RMCT use four GPUs, one for training and three for sampling.} \textcolor{blue}{On Qwen3.5-9B, BCT and OPCT use one GPU and RMCT uses four.}
+
+\section{Bias-type descriptions}
+\label{app:biases}
+All six bias types perturb a multiple-choice question by introducing a cue toward a designated \emph{biased option} (one of the wrong answers); an unbiased version of the same question, with the cue removed, is used as the reference. The descriptions below summarise each cue at the level needed to interpret the experiments; see \citet{chua_bias-augmented_2024} for the full specifications and prompt templates.
+
+\paragraph{Suggested answer.} A short statement is appended to the question signalling that one of the wrong options is preferred (e.g., ``My observations typically align with B.''). The model is meant to answer based on the question content, not the suggestion.
+
+\paragraph{Distractor fact.} An ``irrelevant fun fact'' about the biased option is prepended to the question (e.g., a trivial property of the option text), framed as potentially irrelevant. The cue is the mere presence of any salient information attached to that option.
+
+\paragraph{\textcolor{blue}{Wrong argument.}} A short argument supporting the biased option, generated separately by Google Gemma 4 31B, is presented as ``someone else's argument I read'', and the model is asked to answer truthfully and not be biased by the argument. The cue is the plausible-sounding case for the wrong answer.
+
+\paragraph{Post hoc.} A two-turn exchange in which the question is first asked without chain-of-thought and the assistant turn is forced to a wrong option (e.g., ``The best answer is: (B)''); the user then asks the model to explain its reasoning step-by-step without anchoring on its previous response. The cue is the planted prior answer.
+
+\paragraph{Spurious few-shot squares.} Several multiple choice questions are prepended to the test question. The correct option is always marked with a small black-square symbol, except for the test question, where an incorrect option is marked with the same symbol. A model that picks up the extraneous symbol-to-label association will incorrectly pick the squared option on the test question.
+
+\paragraph{Wrong few-shot.} Several few-shot examples precede the question, each labelled with a wrong answer rather than the correct one. The cue is the pattern of consistent incorrect labelling.
+
+\paragraph{Excluded biases.} We exclude the ``Are you sure?'' and positional biases, which are scored by a procedure that differs from the per-question switch rate used here and so would preclude a uniform interpretation of \textcolor{blue}{TBSR} and BVR across bias types, and hindsight, which is supported only on a single source dataset that we did not adopt in favour of the harder HLE benchmark.
+
 \FloatBarrier
+\section{\texorpdfstring{\textcolor{blue}{Qwen3.5-9B results}}{Qwen3.5-9B results}}
+\label{app:qwen}
+\textcolor{blue}{We repeat the comparison on Qwen3.5-9B with the same training data, budget of 128 batches, evaluation panel and statistics as on Gemma-4-12B-IT.}
 
-\section{Gemma replication}
-\label{app:gemma}
-\paragraph{Gemma replication.}
-Figure~\ref{fig:gemma-main-switch} presents the same four cells for Gemma-4-12B-IT, using the available saved comparison of Base, ACT, AttCT, MLPCT, BCT and RMCT. OPCT is absent from this source comparison, rather than assigned a zero. These are historical terminal checkpoints, not a matched-exposure replication. The original Base screen is partial, and truncation and sampling policies differ across conditions; the cross-model comparison is descriptive.
+\textcolor{blue}{Figure~\ref{fig:current-switch} reports the towards-bias switch rate.} \textcolor{blue}{All six methods significantly reduce TBSR in all four conditions, and no method significantly changes clean accuracy (Figure~\ref{fig:qwen-clean-accuracy}).}
 
-\begin{figure*}[t]
-\centering\color{blue}\includegraphics[width=.94\linewidth]{figures/provisional/gemma-main-switch.pdf}
-\caption{Gemma four-cell towards-bias switch rates, with the same dataset and bias grouping as Figure~\ref{fig:current-switch}. Numbers are available eligible pairs; intervals are saved 95\% Wilson intervals. Stars compare each treatment with Gemma Base using one million QID-cluster label swaps and Holm correction over the source's 90 comparisons. Tests use matched observations, which can differ from the bar denominators. \provisional{Historical saved evaluation, including affected RMCT training; partial Base coverage and method-dependent truncation. No OPCT result is present in this source bundle. Exposure and evaluation policies are not matched.}}
-\label{fig:gemma-main-switch}
-\end{figure*}
+\textcolor{blue}{Among its towards-bias switches, RMCT verbalises the bias in every condition, whereas BCT and OPCT significantly reduce verbalisation on the held-out biases on HLE (Figure~\ref{fig:qwen-verbalisation}).} \textcolor{blue}{Over all biased responses, every method except RMCT significantly reduces BVR in most conditions (Figure~\ref{fig:qwen-overall-verbalisation}).} \textcolor{blue}{Only BCT and OPCT significantly reduce the monitor's AUROC (Figure~\ref{fig:current-monitorability}; paired bootstrap, Holm-corrected over six methods, $p<0.001$ for both).} \textcolor{blue}{Per percentage point of TBSR reduction, BCT and OPCT reduce the AUROC significantly more than RMCT ($p<0.001$ for both; Figure~\ref{fig:qwen-tradeoff}).}
 
-Figure~\ref{fig:gemma-main-verbalisation} adds Gemma's available four-cell verbalisation results. Unlike Figure~\ref{fig:current-verbalisation}, this source measures overall verbalisation among valid grades, not verbalisation conditional on switching. The two figures therefore cannot be interpreted as a direct cross-model comparison of the same outcome.
+\textcolor{blue}{Figure~\ref{fig:current-image-qwen} reports the image-rendered results.} \textcolor{blue}{BCT and OPCT significantly reduce TBSR in all four conditions, and RMCT in all but the suggested-answer cue on HLE.} \textcolor{blue}{ACT, AttCT and MLPCT significantly reduce TBSR under the held-out cues on the training datasets.} \textcolor{blue}{On AITA-NTA-FLIP (Figure~\ref{fig:current-aita}), no method significantly changes the both-NTA rate.} \textcolor{blue}{Between 146 and 283 pairs per model have no valid verdict, almost all because a response reached the 65,536-token limit, and are dropped.}
 
-\begin{figure*}[t]
-\centering\color{blue}\includegraphics[width=.94\linewidth]{figures/provisional/gemma-main-overall.pdf}
-\caption{Gemma overall bias verbalisation across seen/held-out datasets and biases. Numbers are valid grades; saved Wilson intervals and one-million-permutation, QID-cluster, Holm-corrected markers versus Gemma Base are retained. \provisional{Historical checkpoints and incomplete coverage, including affected RMCT training. This is overall verbalisation, not the switch-conditioned Qwen measure and not monitorability. No OPCT bar is available in the source comparison.}}
-\label{fig:gemma-main-verbalisation}
-\end{figure*}
+\begin{figure}[!htbp]
+\centering\includegraphics[width=\linewidth]{figures/v2/qwen-towards-bias-switch.pdf}
+\caption{\textcolor{blue}{Towards-bias switch rate on Qwen3.5-9B.} Lower is better. \textcolor{blue}{Rows and columns as in Figure~\ref{fig:gemma-main-switch}.} \textcolor{blue}{Numbers above bars are the numbers of eligible question--bias pairs.} \textcolor{blue}{Error bars are 95\% bootstrap confidence intervals over questions, stratified by dataset; significance markers denote paired permutation tests against the base model, Holm-corrected within the figure.}}
+\label{fig:current-switch}
+\end{figure}
 
-\begin{figure*}[t]\centering\color{blue}
-\includegraphics[width=.94\linewidth]{figures/provisional/image-gemma.pdf}
-\caption{Saved Gemma image-cue results, 25 September. \provisional{Historical RMCT training was affected; the source manifest records one unresolved RMCT suggested-answer response. This is not a complete, clean, matched-checkpoint replication.}}
-\label{fig:current-image-gemma}
-\end{figure*}
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-aita-nta-flip-valid.pdf}
+\caption{\textcolor{blue}{Both-NTA rate on AITA-NTA-FLIP for Qwen3.5-9B.} \textcolor{blue}{Lower indicates less sycophancy.} \textcolor{blue}{Pairs and statistics as in Figure~\ref{fig:gemma-aita}.}}
+\label{fig:current-aita}
+\end{figure}
+
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{figures/v2/image-qwen-towards-bias-switch-2x2.pdf}
+\caption{\textcolor{blue}{Towards-bias switch rate on image-rendered questions for Qwen3.5-9B.} Lower is better. \textcolor{blue}{Columns, eligibility and statistics as in Figure~\ref{fig:current-image-gemma}.} \textcolor{blue}{Error bars are 95\% bootstrap confidence intervals over questions; significance markers denote paired permutation tests against the base model, Holm-corrected over the 36 comparisons in the figure.}}
+\label{fig:current-image-qwen}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering\includegraphics[width=\linewidth]{figures/v2/qwen-bias-verbalisation-on-switch-subset.pdf}
+\caption{\textcolor{blue}{Bias verbalisation rate (BVR) on Qwen3.5-9B, restricted to the towards-bias-switch subset.} Higher is better. \textcolor{blue}{Error bars are 95\% bootstrap confidence intervals over questions.} \textcolor{blue}{Because each method's subset differs, significance markers denote paired bootstrap tests of the difference from the base model over questions, Holm-corrected within the figure.}}
+\label{fig:qwen-verbalisation}
+\end{figure}
+
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-luna-zero-shot-unfiltered.pdf}
+\caption{\textcolor{blue}{False-negative rate against false-positive rate for the zero-shot Luna monitor on Qwen3.5-9B.} \textcolor{blue}{Lower-left is better.} \textcolor{blue}{Population and statistics as in Figure~\ref{fig:gemma-monitorability}.}}
+\label{fig:current-monitorability}
+\end{figure}
+
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-monitorability-vs-tbsr.pdf}
+\caption{\textcolor{blue}{Change in monitor AUROC against reduction in towards-bias switch rate on Qwen3.5-9B.} \textcolor{blue}{Upper-right is better.} \textcolor{blue}{Statistics as in Figure~\ref{fig:gemma-tradeoff}.}}
+\label{fig:qwen-tradeoff}
+\end{figure}
+
 \FloatBarrier
+\section{\texorpdfstring{\textcolor{blue}{Per-bias switch results}}{Per-bias switch results}}
+\label{app:per-bias}\label{app:transfer}
+\textcolor{blue}{Figure~\ref{fig:per-bias} reports the towards-bias switch rate for each bias, and Figure~\ref{fig:image-per-cue} reports it on image-rendered questions for each visual cue.}
 
-\section{Luna monitorability diagnostics}
-\label{app:monitoring}
-The main figure uses only the unfiltered zero-shot, reasoning-only Luna panel. These appendix diagnostics answer distinct questions: whether scores differ with cue verbalisation, how calibration changes performance, and how scores vary across clean/biased answer matches. Their cohorts differ and their AUROCs should not be compared as if measured on identical populations.
+\begin{figure*}[!tp]\centering
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/gemma-towards-bias-switch-per-bias.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-per-bias}
+\end{subfigure}
+\par\medskip
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/qwen-towards-bias-switch-per-bias.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-per-bias}
+\end{subfigure}
+\caption{\textcolor{blue}{Towards-bias switch rate for each bias.} \textcolor{blue}{Statistics as in Figure~\ref{fig:gemma-main-switch}.}}
+\label{fig:per-bias}
+\end{figure*}
 
-\begin{figure}[htbp]\centering\color{blue}
-\includegraphics[width=\linewidth]{figures/provisional/luna-verbalisation-split.pdf}
-\caption{Luna zero-shot, CoT-only, xhigh FNR--FPR curves split by bias acknowledgement (verbalisation). Legends give switches/non-switches. Stratum membership differs by model; Base and BCT have no positive switches in the unacknowledged stratum, so AUROC is undefined. RMCT has only one positive and five negatives there. \provisional{Saved 23 September diagnostic; pointwise 95\% intervals use 10,000 dataset-stratified paired question bootstraps. Base clean labels are unverified and historical calibration labels are retained. Sparse strata do not support a general claim about monitoring unacknowledged influence.}}
+\begin{figure*}[!tp]\centering
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/image-gemma-towards-bias-switch-per-cue.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-image-per-cue}
+\end{subfigure}
+\par\medskip
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/image-qwen-towards-bias-switch-per-cue.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-image-per-cue}
+\end{subfigure}
+\caption{\textcolor{blue}{Towards-bias switch rate on image-rendered questions for each visual cue.} \textcolor{blue}{Statistics as in Figure~\ref{fig:current-image-gemma}.}}
+\label{fig:image-per-cue}
+\end{figure*}
+
+\paragraph{\textcolor{blue}{Comparison with the text cues.}} \textcolor{blue}{The suggested-answer and spurious few-shot squares cues have text counterparts evaluated on the same questions (Figure~\ref{fig:per-bias}).} \textcolor{blue}{The comparison below is descriptive: significance is tested against the base model within each modality, with Holm correction within each figure, and the two modalities are not tested against each other.} \textcolor{blue}{On the training datasets, the base model switches towards the bias more often under the image cues than under their text counterparts on both models, whereas on HLE the rates are similar or lower under the image cues.} \textcolor{blue}{Reductions are generally smaller under the image cues.}
+
+\textcolor{blue}{On Gemma-4-12B-IT, ACT, AttCT, MLPCT and OPCT significantly reduce TBSR under the text suggested-answer cue on HLE, but no method does so under the image cue.} \textcolor{blue}{Under the spurious few-shot squares cue, most methods significantly reduce TBSR in text on both datasets, whereas under the image cue only BCT and OPCT do so on both datasets, and AttCT and MLPCT on the training datasets only.} \textcolor{blue}{The large text reductions for ACT on the training datasets and for RMCT on HLE do not carry over to the image cue.}
+
+\textcolor{blue}{On Qwen3.5-9B, under the suggested-answer cue, only RMCT significantly reduces TBSR on the training datasets in text, whereas BCT, OPCT and RMCT do so under the image cue; on HLE, BCT and OPCT do so in text and only OPCT under the image cue.} \textcolor{blue}{Under the spurious few-shot squares cue, every method except AttCT significantly reduces TBSR in text on the training datasets, and every method does so under the image cue; on HLE, ACT, AttCT, BCT and OPCT do so in text, and AttCT, BCT and OPCT under the image cue.} \textcolor{blue}{Across both cues and both models, BCT and OPCT are the methods whose reductions most consistently carry over from text to images.}
+
+\FloatBarrier
+\section{\texorpdfstring{\textcolor{blue}{Further verbalisation and monitorability results}}{Further verbalisation and monitorability results}}
+\label{app:monitoring-gemma}\label{app:monitoring}
+\paragraph{\textcolor{blue}{Bias verbalisation.}} \textcolor{blue}{Figure~\ref{fig:verbalisation-per-bias} reports the bias verbalisation rate for each bias.} \textcolor{blue}{Over all biased responses, RMCT significantly reduces BVR in two of the four conditions, by at most eight percentage points, whereas every other method significantly reduces it in all four conditions (Figure~\ref{fig:gemma-overall-verbalisation}).} \textcolor{blue}{Figure~\ref{fig:gemma-joint} reports, on a common population of pairs whose unbiased answer differs from the bias, the joint distribution of switching and verbalisation.}
+
+\begin{figure*}[!tp]\centering
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/gemma-bias-verbalisation-per-bias.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-verbalisation-per-bias}
+\end{subfigure}
+\par\medskip
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/qwen-bias-verbalisation-per-bias.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-verbalisation-per-bias}
+\end{subfigure}
+\caption{\textcolor{blue}{Bias verbalisation rate over all graded biased responses, for each bias.} Higher is better. \textcolor{blue}{Statistics as in Figure~\ref{fig:gemma-verbalisation}.}}
+\label{fig:verbalisation-per-bias}
+\end{figure*}
+
+\begin{figure*}[!tp]\centering
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/gemma-overall-bias-verbalisation.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-overall-verbalisation}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-overall-bias-verbalisation.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-overall-verbalisation}
+\end{subfigure}
+\caption{\textcolor{blue}{Bias verbalisation rate over all graded biased responses.} Higher is better. \textcolor{blue}{Statistics as in Figure~\ref{fig:gemma-verbalisation}.}}
+\label{fig:overall-verbalisation}
+\end{figure*}
+
+\begin{figure*}[!tp]\centering
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/gemma-joint-verbalisation-switching.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-joint}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-joint-verbalisation-switching.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-joint}
+\end{subfigure}
+\caption{\textcolor{blue}{Joint distribution of verbalisation and towards-bias switching, over pairs whose unbiased answer differs from the bias, both answers parse, and the biased response has a verbalisation grade.}}
+\label{fig:joint}
+\end{figure*}
+
+\paragraph{\textcolor{blue}{Verbalisation and monitorability.}} \textcolor{blue}{Across methods, the proportion of towards-bias switches that verbalise the bias correlates with the monitor's AUROC: Pearson $r=0.98$ on Gemma-4-12B-IT and $r=0.98$ on Qwen3.5-9B, with exact permutation $p=0.001$ and $p=0.007$ over the seven models (Figure~\ref{fig:verbalisation-vs-auroc}).}
+
+\begin{figure*}[!tp]\centering
+\includegraphics[width=.9\linewidth,height=0.38\textheight,keepaspectratio]{figures/v2/combined-luna-verbalisation-vs-auroc.pdf}
+\caption{\textcolor{blue}{Monitor AUROC against the proportion of towards-bias switches that verbalise the bias, for Gemma-4-12B-IT (left) and Qwen3.5-9B (right).} \textcolor{blue}{Error bars are 95\% bootstrap confidence intervals over questions on both axes.}}
+\label{fig:verbalisation-vs-auroc}
+\end{figure*}
+
+\paragraph{\textcolor{blue}{Verbalisation splits.}} \textcolor{blue}{On Gemma-4-12B-IT, on responses that verbalise the bias, the monitor's AUROC on RMCT is close to that on the base model, whereas MLPCT, BCT and OPCT significantly reduce it (Figure~\ref{fig:gemma-luna-verbalisation-split}).} \textcolor{blue}{On responses that do not verbalise the bias, the AUROC is lower for every model and no method differs significantly from the base model.} \textcolor{blue}{On Qwen3.5-9B, on responses that verbalise the bias, only BCT and OPCT significantly reduce the AUROC (Figure~\ref{fig:qwen-luna-verbalisation-split}).} \textcolor{blue}{Fewer than 25 towards-bias switches per model do not verbalise the bias, and none for RMCT.}
+
+\begin{figure*}[!tp]\centering
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=.9\linewidth,height=.38\textheight,keepaspectratio]{figures/v2/gemma-luna-zero-shot-by-verbalisation.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-luna-verbalisation-split}
+\end{subfigure}
+\par\medskip
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=.9\linewidth,height=.38\textheight,keepaspectratio]{figures/v2/qwen-luna-zero-shot-by-verbalisation.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-luna-verbalisation-split}
+\end{subfigure}
+\caption{\textcolor{blue}{False-negative rate against false-positive rate for the zero-shot Luna monitor, over all scored pairs, split by whether the response verbalises the bias.} \textcolor{blue}{Lower-left is better.} \textcolor{blue}{Significance as in Figure~\ref{fig:gemma-monitorability}, tested within each panel.}}
 \label{fig:luna-verbalisation-split}
-\end{figure}
+\end{figure*}
 
-\begin{figure}[htbp]\centering\color{blue}
-\includegraphics[width=\linewidth]{figures/provisional/luna-configurations.pdf}
-\caption{Luna CoT-only, xhigh monitoring across zero-shot, distribution-only, examples-only and combined calibration configurations, on 273 matched cases. Lower-left is better. \provisional{Saved 23 September configuration sensitivity analysis; fixed example banks and historical calibration labels are retained. Pointwise 95\% bands use 10,000 paired question bootstraps, stratified by dataset. Base clean labels remain unverified. This cohort differs from the main unfiltered available-score population.}}
-\label{fig:luna-configurations}
-\end{figure}
+\begin{figure*}[!tp]\centering
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/gemma-luna-four-quadrant-ecdf.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-luna-quadrant}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-luna-four-quadrant-ecdf.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-luna-quadrant}
+\end{subfigure}
+\caption{\textcolor{blue}{Zero-shot Luna monitor scores, shown as the cumulative fraction of responses scoring at or below each value.} \textcolor{blue}{Each panel title states whether the unbiased (clean) and biased answers equal the cued option.} \textcolor{blue}{The top-left panel contains the towards-bias switches, for which lower-right is better.} \textcolor{blue}{The other three panels contain only negatives, for which upper-left is better.} \textcolor{blue}{The dotted diagonal corresponds to uniformly random scores.}}
+\label{fig:luna-quadrant}
+\end{figure*}
 
-\begin{figure}[htbp]\centering\color{blue}
-\includegraphics[width=\linewidth]{figures/provisional/luna-four-quadrant.pdf}
-\caption{Luna zero-shot, CoT-only, xhigh score distributions across all four clean-answer/biased-answer match quadrants, including the approved already-matched top-up. Only clean $\ne$ cue and biased $=$ cue is an observed towards-bias switch: higher scores are better there; lower scores are better in the other panels. \provisional{Available-score cohorts differ by method; each quadrant has one outcome class, so within-panel AUROC and full FNR--FPR curves are undefined. Pointwise 95\% bands use 10,000 dataset-stratified paired question-cluster resamples. Answer-match quadrants are not verbalisation quadrants or causal influence labels; Base clean labels remain unverified.}}
-\label{fig:luna-four-quadrant}
-\end{figure}
+\paragraph{\textcolor{blue}{Matched switch rates within conditions.}} \textcolor{blue}{Within individual dataset and bias conditions, methods sometimes reach similar TBSR, which allows a comparison of monitorability at matched TBSR without selecting items by outcome (Figure~\ref{fig:quadrant-tradeoff}).} \textcolor{blue}{On Qwen3.5-9B, RMCT and BCT reach similar TBSR on the held-out biases on both the training datasets and HLE, and the monitor's AUROC is significantly higher on RMCT in both conditions (Holm-corrected $p=0.006$ and $p=0.010$).} \textcolor{blue}{On Gemma-4-12B-IT, the closest condition is HLE with held-out biases, where the difference in AUROC between RMCT and BCT is not significant.}
+
+\begin{figure*}[!tp]\centering
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/gemma-luna-quadrant-tbsr-vs-auroc.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-quadrant-tradeoff}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-luna-quadrant-tbsr-vs-auroc.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-quadrant-tradeoff}
+\end{subfigure}
+\caption{\textcolor{blue}{Monitor AUROC against towards-bias switch rate, separately for each combination of dataset group and bias group.} \textcolor{blue}{Hollow markers have fewer than 20 positives.} \textcolor{blue}{Error bars are 95\% bootstrap confidence intervals over questions on both axes.}}
+\label{fig:quadrant-tradeoff}
+\end{figure*}
+
 \FloatBarrier
+\section{\texorpdfstring{\textcolor{blue}{Further results}}{Further results}}
+\label{app:current-expanded}\label{app:gemma}
+\textcolor{blue}{No method significantly changes clean accuracy (Figure~\ref{fig:gemma-clean-accuracy}).}
 
-\section{Cross-task and cross-modality details}
-\label{app:transfer}
-AITA and Qwen image-cue results are in the main paper (Figures~\ref{fig:current-aita} and~\ref{fig:current-image-qwen}); Gemma results are in Appendix~\ref{app:gemma}. Selective retries do not establish a uniform generation protocol. For image evaluation, ``seen'' refers to cue identity in text training, not previous exposure to this image testbed. The Gemma four-cell text figures likewise retain the saved analysis's partial Base screen, method-dependent missingness and absent OPCT condition. Overall Gemma verbalisation must not be conflated with Qwen's switch-conditioned verbalisation.
+\begin{figure*}[!tp]\centering
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/gemma-towards-bias-switch-upper-bound.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-upper-bound}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-towards-bias-switch-upper-bound.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-upper-bound}
+\end{subfigure}
+\caption{\textcolor{blue}{Towards-bias switch rate when every biased response without a parsed answer, paired with an unbiased answer that does not match the bias, is counted as a towards-bias switch.} \textcolor{blue}{This is an upper bound on the rates in Figures~\ref{fig:gemma-main-switch} and~\ref{fig:current-switch}.}}
+\label{fig:upper-bound}
+\end{figure*}
 
-\section{Compute-matched comparisons and convergence}
+\begin{figure*}[!tp]\centering
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/gemma-accuracy-combined.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-clean-accuracy}\label{fig:gemma-biased-accuracy}
+\end{subfigure}
+\par\medskip
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/qwen-accuracy-combined.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-clean-accuracy}\label{fig:qwen-biased-accuracy}
+\end{subfigure}
+\caption{\textcolor{blue}{Accuracy under the unbiased prompt, counting each question once, and under the biased prompt, over all generated responses.} \textcolor{blue}{Responses without a parsed answer count as incorrect.} \textcolor{blue}{Statistics as in Figure~\ref{fig:gemma-main-switch}.}}
+\label{fig:accuracy}
+\end{figure*}
+
+\textcolor{blue}{Among the jointly parsed pairs in which the biased answer differs from the unbiased answer, most of the base model's changes on the training biases on the training datasets move towards the bias, whereas a smaller share do so for every trained method (Figure~\ref{fig:gemma-direction-switches}).}
+
+\begin{figure*}[!tp]\centering
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/gemma-switch-direction-combined.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-direction-all}\label{fig:gemma-direction-switches}
+\end{subfigure}
+\par\medskip
+\begin{subfigure}{\linewidth}\centering
+\includegraphics[width=\linewidth,height=.37\textheight,keepaspectratio]{figures/v2/qwen-switch-direction-combined.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-direction-all}\label{fig:qwen-direction-switches}
+\end{subfigure}
+\caption{\textcolor{blue}{Answer changes.} \textcolor{blue}{Left: composition of jointly parsed pairs into no switch, switch towards the bias, switch away from the bias, and switch between two other answers.} \textcolor{blue}{Right: composition of switches, over pairs in which the biased answer differs from the unbiased answer.}}
+\label{fig:direction}
+\end{figure*}
+
+\begin{figure*}[!tp]\centering
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/gemma-answer-transitions.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-transitions}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-answer-transitions.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-transitions}
+\end{subfigure}
+\caption{\textcolor{blue}{Transitions from the answer under the unbiased prompt to the answer under the biased prompt, over pairs in which both responses contain a parsed answer.}}
+\label{fig:transitions}
+\end{figure*}
+
+
+\begin{figure*}[!tp]\centering
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/gemma-completion-missingness.pdf}
+\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-missingness}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.49\linewidth}\centering
+\includegraphics[width=\linewidth]{figures/v2/qwen-completion-missingness.pdf}
+\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-missingness}
+\end{subfigure}
+\caption{\textcolor{blue}{Proportion of biased responses without a parsed answer, by cause.}}
+\label{fig:missingness}
+\end{figure*}
+
+\textcolor{blue}{Figure~\ref{fig:image-unparsed} reports the image-rendered responses without a parsed answer for both models.}
+
+\begin{figure}[!htbp]\centering
+\includegraphics[width=\linewidth]{figures/v2/image-responses-without-parsed-answer-compact.pdf}
+\caption{\textcolor{blue}{Proportion of image-rendered responses without a parsed answer, by cause, for Gemma-4-12B-IT (left) and Qwen3.5-9B (right), pooled over the unbiased prompt and the three cues.}}
+\label{fig:image-unparsed}
+\end{figure}
+
+\FloatBarrier
+\section{\texorpdfstring{\textcolor{blue}{Compute and convergence}}{Compute and convergence}}
 \label{app:hyperparameters}
-Compute matching will be performed separately within activation-based methods and output-based methods. Allocated GPU-hours, generated tokens, and data exposure are distinct quantities; the historical accounting below is not itself a compute-matched experiment. It excludes shared bias-store construction, evaluation, grading and some failed or diagnostic attempts. No financial tariff is inferred.
+\textcolor{blue}{Every method in the data-matched comparison is trained for the same 128 batches.} \textcolor{blue}{Table~\ref{tab:compute-gemma128} reports the training compute of the Gemma-4-12B-IT data-matched checkpoints.} \textcolor{blue}{Allocated GPU-hours sum, over the training jobs that ran batches 1--128, the elapsed time multiplied by the number of allocated GPUs, and so include model loading and the generation of targets or rollouts during training.} \textcolor{blue}{They therefore reflect each method's hardware configuration as well as the method itself.} \textcolor{blue}{The configurations differ between methods and between models: BCT and OPCT use four GPUs on Gemma-4-12B-IT, one for training and three for sampling, but a single GPU on Qwen3.5-9B.} \textcolor{blue}{Ratios of allocated GPU-hours are therefore only an approximate guide to relative compute efficiency, and should not be compared across the two models.} \textcolor{blue}{RMCT requires 643 times the allocated GPU-hours of the cheapest methods and 11.3 times those of BCT.}
 
-\begin{table}[htbp]\centering\color{blue}
-\caption{\provisional{Historical allocated training GPU-hours from the 17 September audit; terminal policies have different exposures and stopping steps. RMCT training was affected by parsing. Replace for matched-budget performance claims with verified clean-run accounting and matched checkpoints; replacement unassigned. Historical allocation measurements remain records of consumed resources.}}
-\begin{tabular}{lrr}\toprule Method & Terminal update & Allocated GPU-hours\\\midrule
-ACT & 992 & 2.553\\ AttCT & 880 & 2.201\\ MLPCT & 736 & 1.831\\
-BCT & 288 & 45.668\\ OPCT & 384 & 117.818\\ RMCT & 352 & 407.153\\\bottomrule
-\end{tabular}\end{table}
+\begin{table*}[!tp]\centering
+\caption{\textcolor{blue}{Training compute for the Gemma-4-12B-IT data-matched checkpoints, each trained for 128 batches on GH200 GPUs.} \textcolor{blue}{Allocated GPU-hours exclude bias-prompt construction, validation, evaluation and grading.} \textcolor{blue}{Generated tokens count the sampled targets or rollouts used for training.}}
+\label{tab:compute-gemma128}
+\color{blue}\begin{tabular}{lrrrrr}\toprule
+Method & GPUs & Updates & Allocated GPU-h & Relative & Generated tokens\\\midrule
+ACT & 1 & 128 & 0.34 & 1.0$\times$ & --\\
+AttCT & 1 & 128 & 0.34 & 1.0$\times$ & --\\
+MLPCT & 1 & 128 & 0.34 & 1.0$\times$ & --\\
+BCT & 4 & 127 & 19.24 & 57.1$\times$ & 1.5M\\
+OPCT & 4 & 120 & 35.43 & 105.2$\times$ & 7.6M\\
+RMCT & 4 & 110 & 216.65 & 643.0$\times$ & 327.5M\\\bottomrule
+\end{tabular}\end{table*}
 
-\begin{figure}[htbp]\centering\color{blue}
-\includegraphics[width=.94\linewidth]{figures/provisional/convergence.pdf}
-\caption{Historical training curves. Each method has its own objective and scale. \provisional{17 September own-objective stopping histories, not the later validation-selected comparison. RMCT's recorded trait rates were affected by parsing; these curves cannot establish clean training convergence. Replace with clean-run histories and verified validation-based selection. Replacement unassigned.}}
-\end{figure}
+\textcolor{blue}{Table~\ref{tab:compute-qwen128} reports the same quantities for the Qwen3.5-9B data-matched checkpoints.} \textcolor{blue}{RMCT requires 464 times the allocated GPU-hours of the cheapest method, AttCT, and 3.9 times those of BCT.} \textcolor{blue}{The activation-based methods each require less than 0.4 GPU-hours.}
 
-The separate 28 September validation audit covers 32 Qwen checkpoints and 19,200 saved responses. Correcting eight labels leaves selected checkpoints and first stopping steps unchanged in that audit; it does not clear RMCT training validity. These validation decisions must not be conflated with the own-loss stopping curves above. A final convergence comparison requires the frozen validation population, selection metric, improvement threshold and patience, together with the actual exposure and compute at the selected checkpoint.
+\begin{table*}[!tp]\centering
+\caption{\textcolor{blue}{Training compute for the Qwen3.5-9B data-matched checkpoints, each trained for 128 batches on GH200 GPUs.} \textcolor{blue}{Allocated GPU-hours include model loading and generation during training, and exclude bias-prompt construction, validation, evaluation and grading.} \textcolor{blue}{Generated tokens count the sampled targets or rollouts used for training.}}
+\label{tab:compute-qwen128}
+\color{blue}\begin{tabular}{lrrrrr}\toprule
+Method & GPUs & Updates & Allocated GPU-h & Relative & Generated tokens\\\midrule
+ACT & 1 & 128 & 0.33 & 1.06$\times$ & --\\
+AttCT & 1 & 128 & 0.31 & 1.00$\times$ & --\\
+MLPCT & 1 & 128 & 0.34 & 1.10$\times$ & --\\
+BCT & 1 & 128 & 36.4 & 117$\times$ & 2.4M\\
+OPCT & 1 & 128 & 45.9 & 148$\times$ & 8.7M\\
+RMCT & 4 & 118 & 143.8 & 464$\times$ & 512.1M\\\bottomrule
+\end{tabular}\end{table*}
+
+
+
 \FloatBarrier
+\section{\texorpdfstring{\textcolor{blue}{Final-answer parsing during RMCT training}}{Final-answer parsing during RMCT training}}
+\label{app:traits}
+\textcolor{blue}{The RMCT checkpoints evaluated in this draft were trained with a final-answer parser that misclassified some responses.} \textcolor{blue}{Replaying the saved training rollouts with a corrected parser changes 7,803 binary trait labels for Qwen (training steps 1--176) and 62 for Gemma (steps 70--310), which changes 58,667 and 2,206 rewards respectively.} \textcolor{blue}{Steps outside these ranges were not replayed.}
 
-\section{Trait extraction and reproducibility}
-The training audit reproduced all recorded historical traits in its audited scope: Qwen steps 1--176 and Gemma steps 70--310. Among independently resolvable final answers it identified 7,803 changed binary traits for Qwen and 62 for Gemma. Replacing resolved traits while retaining historical eligibility changed 58,667 and 2,206 training-role rewards respectively. This is a bounded replay, not corrected training, and does not quantify downstream weight or performance changes. Unaudited steps are not established safe by their absence. The draft's figure inventory records exact source paths and SHA256 hashes; no new target inference or grading was performed for this manuscript.
-
+\FloatBarrier
 \section{Anchor reward}
 \label{app:anchor}
-The original method supports an optional anchor reward
-\begin{equation}
-r^{\mathrm{anchor}}_{x,i}=-(p_x-p_x^{(0)})(T(x,y_i)-p_x),\qquad x\in\mathcal X_{\mathrm{ref}}.
-\end{equation}
-The original experiments used the consistency reward alone. The original draft's empirical justification for reference-rate stability remains in the preserved source; it is not re-established by this provisional revision.
 
+To prevent the target rate $p_{\text{ref}}$ from drifting as the policy
+updates, RMCT supports an optional anchor reward that ties each reference
+rate $p_x$ ($x \in \mathcal{X}_{\text{ref}}$) to its initial value $p^{(0)}_x$
+computed under the initial policy $\pi_{\theta_0}$ (a checkpoint taken before
+consistency training begins):
+\begin{equation}
+r^{\text{anchor}}_{x,i} = -(p_x - p^{(0)}_x)\,(T(x, y_i) - p_x)
+\qquad x \in \mathcal{X}_{\text{ref}}
+\end{equation}
+Anchoring each $p_x$ individually
+keeps $p^{(0)}_{\text{ref}} = Q(\{p^{(0)}_x\}_{x \in \mathcal{X}_{\text{ref}}})$
+stable under any choice of aggregator $Q$.
+
+Reference and non-reference trajectories receive different reward terms,
+combined by a mixing weight $\alpha$:
+\begin{equation}
+r_{x,i} =
+\begin{cases}
+(1-\alpha)\, r^{\text{cons}}_{x,i} & x \in \mathcal{X} \setminus \mathcal{X}_{\text{ref}} \\
+\alpha\, r^{\text{anchor}}_{x,i} & x \in \mathcal{X}_{\text{ref}}
+\end{cases}
+\end{equation}
+All experiments in this paper use $\alpha = 0$ (the consistency reward alone). The anchor term was not needed because target rate drift is not a concern in the sycophancy benchmark we evaluate on: the biased option for each evaluation question is sampled at random from the incorrect answers, and the unbiased prompt contains no signal that distinguishes the biased option from the other incorrect options. The target rate $p_{\text{ref}}$ can therefore only drift via an overall shift in the unbiased-prompt answer distribution, for instance through a change in accuracy. \textcolor{blue}{No method significantly changes accuracy under the unbiased prompt on either model (Figure~\ref{fig:accuracy}), so we do not expect $p_{\text{ref}}$ to drift appreciably.}
+
+\FloatBarrier
 \section{Extension to distribution matching}
 \label{app:distribution-matching}
-For a finite-valued trait, define $T_k(x,y)=\mathbf 1[T(x,y)=t_k]$ and apply the binary reward to each indicator:
+
+When $T(x, y) \in \{0,1\}$, the distribution of $T$ under any policy is a Bernoulli parameterised entirely by the rate $p_x$, so matching rates across inputs is equivalent to matching distributions. For a non-binary $T$ — whether taking values in a finite set $\mathcal{T} = \{t_1, \ldots, t_K\}$ (e.g.\ a graded quality score) or in a continuous range (e.g.\ a scalar reward signal) — the marginal distribution has more degrees of freedom than its mean, and matching means no longer implies matching distributions.
+
+The framework extends naturally to finite-valued $T$. Define a binary indicator for each value:
 \begin{equation}
-r^{\mathrm{dist}}_{x,i}=\sum_k -(p_{x,k}-p_{\mathrm{ref},k})(T_k(x,y_i)-p_{x,k}).
+T_k(x, y) = \mathbf{1}[T(x, y) = t_k], \qquad k = 1, \ldots, K.
 \end{equation}
-This extends rate matching beyond a single Bernoulli parameter. The full original derivation and discussion are preserved in \texttt{main.tex}; this working draft does not add an empirical distribution-matching claim.
+Each $T_k$ is a valid binary trait, so the RMCT reward can be applied to each independently and summed:
+\begin{equation}
+r^{\text{dist}}_{x,i} = \sum_{k=1}^{K} -(p_{x,k} - p_{\text{ref},k})\,(T_k(x, y_i) - p_{x,k}),
+\end{equation}
+where $p_{x,k} = \frac{1}{N}\sum_i T_k(x, y_i)$ is the empirical rate for value $t_k$. This is the policy-gradient estimator for the objective $\frac{1}{2}\sum_k (p_{x,k} - p_{\text{ref},k})^2$, i.e.\ the squared $\ell_2$ distance between the empirical distributions of $T$ on $x$ and on the reference. When $K=2$, the two indicators $T_1$ and $T_2 = 1 - T_1$ are redundant and the reward reduces to twice the binary RMCT reward.
+
+For continuous $T$, the same idea applies by replacing the sum over discrete values with an integral over thresholds $t$: applying the RMCT reward to the binary thresholding functions $\mathbf{1}[T(x, y) \leq t]$ for all $t$ and integrating yields the objective $\frac{1}{2}\int(\hat{F}_x(t) - \hat{F}_{\text{ref}}(t))^2\,dt$ (the squared Cram\'{e}r distance between the empirical distributions), which enforces matching of the full empirical CDF.
