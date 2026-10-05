@@ -353,11 +353,6 @@ RMCT & 4 & 118 & 143.8 & 464$\times$ & 512.1M\\\bottomrule
 
 
 \FloatBarrier
-\section{\texorpdfstring{\textcolor{blue}{Final-answer parsing during RMCT training}}{Final-answer parsing during RMCT training}}
-\label{app:traits}
-\textcolor{blue}{The RMCT checkpoints evaluated in this draft were trained with a final-answer parser that misclassified some responses.} \textcolor{blue}{Replaying the saved training rollouts with a corrected parser changes 7,803 binary trait labels for Qwen (training steps 1--176) and 62 for Gemma (steps 70--310), which changes 58,667 and 2,206 rewards respectively.} \textcolor{blue}{Steps outside these ranges were not replayed.}
-
-\FloatBarrier
 \section{Anchor reward}
 \label{app:anchor}
 
