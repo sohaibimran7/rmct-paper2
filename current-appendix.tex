@@ -88,7 +88,7 @@ All six bias types perturb a multiple-choice question by introducing a cue towar
 
 \begin{figure}[!htbp]\centering
 \includegraphics[width=\linewidth]{figures/v2/qwen-luna-zero-shot-unfiltered.pdf}
-\caption{\textcolor{blue}{False-negative rate against false-positive rate for the zero-shot Luna monitor on Qwen3.5-9B.} \textcolor{blue}{Lower-left is better.} \textcolor{blue}{Population and statistics as in Figure~\ref{fig:gemma-monitorability}.}}
+\caption{\textcolor{blue}{False-negative rate against false-positive rate for the Luna monitor on Qwen3.5-9B.} \textcolor{blue}{Lower-left is better.} \textcolor{blue}{Population and statistics as in Figure~\ref{fig:gemma-monitorability}.}}
 \label{fig:current-monitorability}
 \end{figure}
 
@@ -202,7 +202,7 @@ All six bias types perturb a multiple-choice question by introducing a cue towar
 \includegraphics[width=.9\linewidth,height=.38\textheight,keepaspectratio]{figures/v2/qwen-luna-zero-shot-by-verbalisation.pdf}
 \caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-luna-verbalisation-split}
 \end{subfigure}
-\caption{\textcolor{blue}{False-negative rate against false-positive rate for the zero-shot Luna monitor, over all scored pairs, split by whether the response verbalises the bias.} \textcolor{blue}{Lower-left is better.} \textcolor{blue}{Significance as in Figure~\ref{fig:gemma-monitorability}, tested within each panel.}}
+\caption{\textcolor{blue}{False-negative rate against false-positive rate for the Luna monitor, over all scored pairs, split by whether the response verbalises the bias.} \textcolor{blue}{Lower-left is better.} \textcolor{blue}{Significance as in Figure~\ref{fig:gemma-monitorability}, tested within each panel.}}
 \label{fig:luna-verbalisation-split}
 \end{figure*}
 
@@ -215,7 +215,7 @@ All six bias types perturb a multiple-choice question by introducing a cue towar
 \includegraphics[width=\linewidth]{figures/v2/qwen-luna-four-quadrant-ecdf.pdf}
 \caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-luna-quadrant}
 \end{subfigure}
-\caption{\textcolor{blue}{Zero-shot Luna monitor scores, shown as the cumulative fraction of responses scoring at or below each value.} \textcolor{blue}{Each panel title states whether the unbiased (clean) and biased answers equal the cued option.} \textcolor{blue}{The top-left panel contains the towards-bias switches, for which lower-right is better.} \textcolor{blue}{The other three panels contain only negatives, for which upper-left is better.} \textcolor{blue}{The dotted diagonal corresponds to uniformly random scores.}}
+\caption{\textcolor{blue}{Luna monitor scores, shown as the cumulative fraction of responses scoring at or below each value.} \textcolor{blue}{Each panel title states whether the unbiased (clean) and biased answers equal the cued option.} \textcolor{blue}{The top-left panel contains the towards-bias switches, for which lower-right is better.} \textcolor{blue}{The other three panels contain only negatives, for which upper-left is better.} \textcolor{blue}{The dotted diagonal corresponds to uniformly random scores.}}
 \label{fig:luna-quadrant}
 \end{figure*}
 
@@ -238,19 +238,6 @@ All six bias types perturb a multiple-choice question by introducing a cue towar
 \section{\texorpdfstring{\textcolor{blue}{Further results}}{Further results}}
 \label{app:current-expanded}\label{app:gemma}
 \textcolor{blue}{No method significantly changes clean accuracy (Figure~\ref{fig:gemma-clean-accuracy}).}
-
-\begin{figure*}[!tp]\centering
-\begin{subfigure}[t]{.49\linewidth}\centering
-\includegraphics[width=\linewidth]{figures/v2/gemma-towards-bias-switch-upper-bound.pdf}
-\caption{\textcolor{blue}{Gemma-4-12B-IT}}\label{fig:gemma-upper-bound}
-\end{subfigure}\hfill
-\begin{subfigure}[t]{.49\linewidth}\centering
-\includegraphics[width=\linewidth]{figures/v2/qwen-towards-bias-switch-upper-bound.pdf}
-\caption{\textcolor{blue}{Qwen3.5-9B}}\label{fig:qwen-upper-bound}
-\end{subfigure}
-\caption{\textcolor{blue}{Towards-bias switch rate when every biased response without a parsed answer, paired with an unbiased answer that does not match the bias, is counted as a towards-bias switch.} \textcolor{blue}{This is an upper bound on the rates in Figures~\ref{fig:gemma-main-switch} and~\ref{fig:current-switch}.}}
-\label{fig:upper-bound}
-\end{figure*}
 
 \begin{figure*}[!tp]\centering
 \begin{subfigure}{\linewidth}\centering
